@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.DS_Store
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# 7.4GB 实验工件：可重跑，不入库
+artifacts/
+# vendored 第三方求解器（各自有上游仓库）
+third_party/
