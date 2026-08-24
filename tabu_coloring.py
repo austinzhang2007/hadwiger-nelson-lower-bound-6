@@ -13,6 +13,30 @@ import numpy as np
 from coloring_sat import ColoringSAT, parse_dimacs_edge
 
 
+def load_initial_coloring(path: str | Path) -> list[int]:
+    """Load a coloring from either a graph report or an edge-ladder checkpoint."""
+
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    raw = payload.get("whole_graph_coloring")
+    if not isinstance(raw, list):
+        raw = payload.get("coloring")
+    if not isinstance(raw, list):
+        raw = payload.get("best_coloring")
+    if not isinstance(raw, list):
+        raise ValueError("initial report has no coloring")
+    return [int(color) for color in raw]
+
+
+def summary_without_colorings(payload: dict[str, object]) -> dict[str, object]:
+    """Return progress metadata without printing large coloring arrays."""
+
+    return {
+        key: value
+        for key, value in payload.items()
+        if key not in {"coloring", "best_coloring"}
+    }
+
+
 def tabu_repair(
     vertex_count: int,
     edges: set[tuple[int, int]],
@@ -22,10 +46,16 @@ def tabu_repair(
     seed: int = 20260804,
     iterations: int = 2_000_000,
     sample_size: int = 256,
+    stagnation_limit: int | None = None,
+    kick_size: int = 0,
 ) -> tuple[list[int] | None, dict[str, object]]:
     """Try to remove monochromatic edges; return only a validated coloring."""
 
     rng = random.Random(seed)
+    if stagnation_limit is not None and (
+        stagnation_limit < 1 or kick_size < 1
+    ):
+        raise ValueError("stagnation kicks require positive limits and kick size")
     adjacency: list[list[int]] = [[] for _ in range(vertex_count)]
     for left, right in edges:
         adjacency[left].append(right)
@@ -58,7 +88,24 @@ def tabu_repair(
                 position[last] = index
             position[vertex] = -1
 
+    def rebuild_state() -> None:
+        nonlocal total
+        counts.fill(0)
+        for left, right in edges:
+            counts[left, coloring[right]] += 1
+            counts[right, coloring[left]] += 1
+        conflict_degree[:] = counts[np.arange(vertex_count), coloring]
+        total = int(conflict_degree.sum() // 2)
+        active[:] = [
+            vertex for vertex in range(vertex_count) if conflict_degree[vertex]
+        ]
+        position.fill(-1)
+        for index, active_vertex in enumerate(active):
+            position[active_vertex] = index
+
     started = time.monotonic()
+    perturbations = 0
+    last_improvement = 0
     for iteration in range(1, iterations + 1):
         if total == 0:
             result = [int(color) for color in coloring]
@@ -77,8 +124,24 @@ def tabu_repair(
                     sum(initial[left] == initial[right] for left, right in edges)
                 ),
                 "best_conflicts": 0,
+                "perturbations": perturbations,
                 "elapsed_seconds": time.monotonic() - started,
             }
+        if (
+            stagnation_limit is not None
+            and iteration - last_improvement >= stagnation_limit
+        ):
+            coloring[:] = best_coloring
+            rebuild_state()
+            for vertex in rng.sample(active, min(kick_size, len(active))):
+                old = int(coloring[vertex])
+                coloring[vertex] = rng.choice(
+                    [color for color in range(colors) if color != old]
+                )
+            rebuild_state()
+            tabu_until.fill(0)
+            perturbations += 1
+            last_improvement = iteration
         pool = (
             active
             if len(active) <= sample_size
@@ -119,21 +182,10 @@ def tabu_repair(
         if total < best_total:
             best_total = total
             best_coloring = coloring.copy()
+            last_improvement = iteration
         if iteration % 250_000 == 0 and total > best_total + 100:
             coloring[:] = best_coloring
-            for vertex_index in range(vertex_count):
-                counts[vertex_index].fill(0)
-            for left, right in edges:
-                counts[left, coloring[right]] += 1
-                counts[right, coloring[left]] += 1
-            conflict_degree[:] = counts[np.arange(vertex_count), coloring]
-            total = int(conflict_degree.sum() // 2)
-            active[:] = [
-                vertex for vertex in range(vertex_count) if conflict_degree[vertex]
-            ]
-            position.fill(-1)
-            for index, active_vertex in enumerate(active):
-                position[active_vertex] = index
+            rebuild_state()
             tabu_until.fill(0)
     return None, {
         "status": "UNKNOWN_ITERATION_LIMIT",
@@ -143,6 +195,8 @@ def tabu_repair(
             sum(initial[left] == initial[right] for left, right in edges)
         ),
         "best_conflicts": best_total,
+        "best_coloring": [int(color) for color in best_coloring],
+        "perturbations": perturbations,
         "elapsed_seconds": time.monotonic() - started,
     }
 
@@ -155,10 +209,11 @@ def main() -> int:
     parser.add_argument("--seed", type=int, default=20260804)
     parser.add_argument("--iterations", type=int, default=2_000_000)
     parser.add_argument("--sample-size", type=int, default=256)
+    parser.add_argument("--stagnation-limit", type=int)
+    parser.add_argument("--kick-size", type=int, default=0)
     args = parser.parse_args()
     vertex_count, edges = parse_dimacs_edge(args.edge)
-    initial_payload = json.loads(args.initial_report.read_text(encoding="utf-8"))
-    initial = [int(color) for color in initial_payload["whole_graph_coloring"]]
+    initial = load_initial_coloring(args.initial_report)
     coloring, stats = tabu_repair(
         vertex_count,
         edges,
@@ -166,12 +221,14 @@ def main() -> int:
         seed=args.seed,
         iterations=args.iterations,
         sample_size=args.sample_size,
+        stagnation_limit=args.stagnation_limit,
+        kick_size=args.kick_size,
     )
     payload = {**stats, "coloring": coloring}
     temporary = args.output.with_suffix(args.output.suffix + ".tmp")
     temporary.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     temporary.replace(args.output)
-    print(json.dumps({key: value for key, value in payload.items() if key != "coloring"}))
+    print(json.dumps(summary_without_colorings(payload)))
     return 10 if coloring is not None else 0
 
 

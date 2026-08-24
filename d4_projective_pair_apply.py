@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 from pathlib import Path
 import time
@@ -260,3 +261,38 @@ def apply_projective_forced_pair_scan(
     )
     _write_json(report_path, payload)
     return payload
+
+
+def _main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--base-graph", required=True)
+    parser.add_argument("--primary-report", required=True)
+    parser.add_argument("--source-vertices", required=True)
+    parser.add_argument("--resume-report", required=True)
+    parser.add_argument("--scan", required=True)
+    parser.add_argument("--output-directory", required=True)
+    args = parser.parse_args()
+    payload = apply_projective_forced_pair_scan(
+        base_graph_path=args.base_graph,
+        primary_report_path=args.primary_report,
+        source_vertex_path=args.source_vertices,
+        resume_report_path=args.resume_report,
+        scan_path=args.scan,
+        output_directory=args.output_directory,
+    )
+    print(
+        json.dumps(
+            {
+                "status": payload["status"],
+                "vertices": payload["vertices"],
+                "edges": payload["edges"],
+                "application": payload["projective_forced_pair_application"],
+            },
+            sort_keys=True,
+        ),
+        flush=True,
+    )
+
+
+if __name__ == "__main__":
+    _main()
