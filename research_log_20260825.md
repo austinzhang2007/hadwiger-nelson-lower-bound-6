@@ -116,13 +116,21 @@ new coloring:
   `artifacts/cegis_49820_interactions/heule49820-d4-blockers.json`;
 - seed dependence: none in exact recovery/pair certification.
 
-At the time of writing, the checkpoint has loaded and exact four-color forced
-point recovery is running.  No candidate count is claimed before that stage
-finishes.
+The scan checked 99,921,538 cross-color center pairs and recovered 3,561
+exact forced-color-4 candidates in 2,461.25 seconds.  Exact pair filtering took
+241.87 seconds and certified 617 unit candidate pairs involving 977 candidates.
+Applying all used candidates added 3,908 generator edges and all 617 pair edges,
+producing a 50,797-vertex / 467,091-edge exact-listed graph.  CaDiCaL195 found
+a 5-coloring in 4.40 seconds; an independent DIMACS-edge pass verified zero
+conflicts and class sizes [12466,10289,10657,11496,5889].  The canonical
+coloring-array SHA-256 is
+`4a2da4445f27f504ab8f5abee96d4ae289b84f5e96aa06f53d15e610089daf76`.
+A memory-bounded interaction-edge augmentation of this graph is now running.
 
 ## Current strict conclusion
 
-- 49,820 / 462,566 exact-listed graph: **SAT**, independently validated;
+- 50,797 / 467,091 exact-listed graph: **SAT**, independently validated;
+- its 49,820 / 462,566 parent checkpoint is also **SAT**;
 - complete induced unit-distance edge set: not yet certified for this large
   graph (the numerical annulus was only a prefilter);
 - lower bound 6: **not proved**;
