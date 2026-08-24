@@ -125,11 +125,18 @@ a 5-coloring in 4.40 seconds; an independent DIMACS-edge pass verified zero
 conflicts and class sizes [12466,10289,10657,11496,5889].  The canonical
 coloring-array SHA-256 is
 `4a2da4445f27f504ab8f5abee96d4ae289b84f5e96aa06f53d15e610089daf76`.
-A memory-bounded interaction-edge augmentation of this graph is now running.
+The memory-bounded interaction scan examined 153,600,782 radius pairs and
+found 472,414 narrow-annulus pairs.  Every one of the 5,323 pairs not already
+listed passed the exact D4 unit identity, giving a 50,797 / 472,414 target.
+The previous coloring had 605 conflicts.  Tabu seed 20260825 reached a valid
+coloring in 1,287,949 iterations / 31.02 seconds, and an independent
+phase-normalized Kissat walk also returned SAT.  Independent all-edge decoding
+validated the Kissat class sizes [12448,10354,10873,11455,5667].  A new
+missing-color-4 all-projective scan from this coloring is now running.
 
 ## Current strict conclusion
 
-- 50,797 / 467,091 exact-listed graph: **SAT**, independently validated;
+- 50,797 / 472,414 exact-listed graph: **SAT**, independently validated;
 - its 49,820 / 462,566 parent checkpoint is also **SAT**;
 - complete induced unit-distance edge set: not yet certified for this large
   graph (the numerical annulus was only a prefilter);
