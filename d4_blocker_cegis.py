@@ -125,8 +125,9 @@ def _write_current_artifacts(
                 "all blocker-to-base and blocker-to-blocker edges by exact "
                 "32-dimensional primary-D4 algebra"
                 if complete_unit_distance_graph
-                else "five exact color-blocking generator edges per newly "
-                "listed blocker; additional unit edges intentionally omitted"
+                else "a certified subset of exact unit edges sufficient for "
+                "the recorded CEGIS blocking constraints; additional unit "
+                "edges intentionally omitted"
             )
         ),
         "symmetry_clique_zero_based": list(symmetry_clique),
